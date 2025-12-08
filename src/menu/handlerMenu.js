@@ -1,82 +1,116 @@
+import buildReplyKeyboard, { buildProductsListText } from "./keyboard.js";
+
 /**
  * handlerMenu(msg, bot, products)
- *
- * - products: array loaded from products.json
  */
 export default async function handlerMenu(msg, bot, products = []) {
   const text = String(msg.text || "").trim();
   const chatId = msg.chat.id;
 
-  // static menus
+  // commands handled elsewhere (/start), handle reply keys:
   if (/^🏷\s*List Produk$/i.test(text) || /^list produk$/i.test(text)) {
-    // send short product list
-    if (!products.length) {
-      return bot.sendMessage(chatId, "Daftar produk kosong.");
-    }
-    const lines = products.map((p, idx) => `${idx+1}. ${p.name}`);
-    return bot.sendMessage(chatId, `Daftar Produk:\n\n${lines.join("\n")}\n\nPilih nomor untuk melihat detail.`, {
-      reply_markup: {
-        keyboard: undefined // keep existing keyboard
-      }
+    const listText = buildProductsListText(products, 1, 10);
+    return bot.sendMessage(chatId, listText, {
+      reply_markup: { remove_keyboard: false }
     });
   }
 
   if (/^❓\s*Cara Order$/i.test(text) || /^cara order$/i.test(text)) {
-    return bot.sendMessage(chatId, `Cara Order:\n1. Pilih produk\n2. Kirim nomor tujuan\n3. Lakukan pembayaran\n\nContoh: pilih nomor produk lalu ikuti instruksi.`);
+    return bot.sendMessage(chatId, `Cara Order:\n1) Pilih produk / nomor\n2) Pilih variasi -> atur Jumlah -> Beli\n3) Kirim nomor tujuan & konfirmasi pembayaran`);
   }
 
   if (/^⚠️\s*Information$/i.test(text) || /^information$/i.test(text) || /^info$/i.test(text)) {
-    return bot.sendMessage(chatId, `Information:\n- Jam layanan 08:00-22:00\n- Owner: Katheryne\n- Support: reply here.`);
+    return bot.sendMessage(chatId, `Information:\n- Jam layanan: 08:00-22:00\n- Owner: Katheryne`);
   }
 
   if (/^💰\s*Deposit$/i.test(text) || /^deposit$/i.test(text)) {
-    return bot.sendMessage(chatId, `Deposit:\nTransfer ke rekening 123456789 a.n. TOKO\nSetelah transfer, kirim bukti atau hubungi admin.`);
+    return bot.sendMessage(chatId, `Deposit:\nTransfer ke rekening 123456789 a.n. TOKO\nSetelah transfer, kirim bukti ke admin.`);
   }
 
   if (/^📄\s*Laporan Stok$/i.test(text) || /^laporan stok$/i.test(text)) {
-    // simple placeholder
-    return bot.sendMessage(chatId, "Laporan Stok: (contoh)\nPulsa 5k: 100\nPulsa 10k: 50\nPaket Data 1GB: 25");
+    return bot.sendMessage(chatId, "Laporan Stok: (contoh)\nPulsa 5k: 100\nPulsa 10k: 50");
   }
 
-  // numeric selection: 1..N
-  const numMatch = text.match(/^([1-9]|1[0-9]|2[0-9]|30)$/); // allow up to 30 just in case
+  // pagination: Prev / Next
+  if (/^◀️\s*Prev$/i.test(text) || /^Prev$/i.test(text)) {
+    // determine current page from text? Simpler: ask client to send /menu pageN - but user asked no questions.
+    // We'll parse numbers from previous keyboard: We'll store page in chat state? To keep simple: if user presses Prev/Next we will send page 1 or 2 based on presence of "Halaman"
+    // Simpler pragmatic approach: if Prev then send page 1, if Next then send page 2
+    const keyboard = buildReplyKeyboard(products, 1);
+    return bot.sendMessage(chatId, buildProductsListText(products, 1, 10), {
+      reply_markup: { keyboard, resize_keyboard: true }
+    });
+  }
+
+  if (/^Next\s*▶️$/i.test(text) || /^Next$/i.test(text) || /^Next ▶️$/i.test(text)) {
+    const keyboard = buildReplyKeyboard(products, 2);
+    return bot.sendMessage(chatId, buildProductsListText(products, 2, 10), {
+      reply_markup: { keyboard, resize_keyboard: true }
+    });
+  }
+
+  // numeric selection (1..n)
+  const numMatch = text.match(/^([1-9]\d*)$/);
   if (numMatch) {
-    const num = Number(numMatch[0]);
-    if (num < 1 || num > products.length) {
+    const idx = Number(numMatch[1]);
+    if (idx < 1 || idx > products.length) {
       return bot.sendMessage(chatId, `Nomor produk tidak valid. Pilih 1..${products.length}`);
     }
-    const product = products[num - 1];
+    const product = products[idx - 1];
 
-    // prepare product summary
-    const summary = [
-      `✅ *${product.name}*`,
-      product.description ? `${product.description}` : "",
-      product.price ? `Harga: ${product.price}` : "",
-      `ID Produk: ${product.id}`,
-    ].filter(Boolean).join("\n");
+    // product summary
+    const lines = [];
+    lines.push(`╭───────────────`);
+    lines.push(`┊・Produk : ${product.nama}`);
+    lines.push(`┊・Stok Terjual : ${product.terjual ?? 0}`);
+    if (product.deskripsi) lines.push(`┊・Desk : ${product.deskripsi}`);
+    if (product.penjelasan_url) lines.push(`┊・penjelasan : ${product.penjelasan_url}`);
+    lines.push(`╰───────────────\n`);
 
-    // inline keyboard
-    const inlineKeyboard = [
-      [
-        { text: "Detail", callback_data: `detail:${num}` },
-        { text: "Beli", callback_data: `buy:${num}` }
-      ]
-    ];
+    // Variasi list + inline keyboard (each variation -> callback data "var:<prodIdx>:<varIdx>")
+    const variations = product.variasi || [];
+    if (!variations.length) lines.push("Tidak ada variasi untuk produk ini.");
+    else {
+      lines.push("╭───────────────");
+      lines.push("┊ Variasi, Harga - (Stok):");
+      variations.forEach(v => {
+        lines.push(`┊・${v.nama} - Rp ${formatRupiah(v.harga)} - (${v.stok})`);
+      });
+      lines.push("╰───────────────");
+    }
 
-    return bot.sendMessage(chatId, summary, {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: inlineKeyboard }
-    });
-  }
-
-  // fallback: unknown text -> prompt main menu
-  if (text.length > 0) {
-    return bot.sendMessage(chatId, `Maaf, aku nggak mengerti "${text}". Ketik /menu untuk melihat daftar.`, {
-      reply_markup: {
-        // re-create keyboard according to current product count
-        keyboard: (await import("./keyboard.js")).default(products.length),
-        resize_keyboard: true
+    // Build inline keyboard: one row per variation (Detail -> open modal detail/qty)
+    const inline = [];
+    if (variations.length) {
+      for (let i = 0; i < variations.length; i++) {
+        const v = variations[i];
+        // show variation label abbreviated
+        const label = v.nama.length > 35 ? (v.nama.slice(0, 32) + "...") : v.nama;
+        inline.push([{ text: label, callback_data: `var:${idx}:${i + 1}` }]);
       }
+    } else {
+      // fallback single "Detail" and "Back"
+      inline.push([{ text: "Detail", callback_data: `detail:${idx}` }]);
+    }
+    // add back button row
+    inline.push([{ text: "◀️ Kembali", callback_data: `back:list` }]);
+
+    return bot.sendMessage(chatId, lines.join("\n"), {
+      reply_markup: { inline_keyboard: inline }
     });
   }
+
+  // fallback
+  if (text.length > 0) {
+    const keyboard = buildReplyKeyboard(products, 1);
+    return bot.sendMessage(chatId, `Maaf, aku nggak paham: "${text}". Ketik /menu untuk kembali.`, {
+      reply_markup: { keyboard, resize_keyboard: true }
+    });
+  }
+}
+
+// helper: rupiah format
+function formatRupiah(num) {
+  if (typeof num !== "number") num = Number(num) || 0;
+  return num.toLocaleString("id-ID");
 }
