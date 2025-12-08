@@ -1,19 +1,13 @@
 import fs from "fs/promises";
-import path from "path";
+import dayjs from "dayjs";
 
 /**
- * Load products file and return array of products.
- * products.json should be array of objects:
- * [
- *  { "id": 1, "name": "Genshin Pack", "description": "...", "items": ["Welkin", "Primogem"] },
- *  ...
- * ]
+ * loadProducts(path) => array
  */
 export async function loadProducts(dataPath) {
   try {
     const txt = await fs.readFile(dataPath, "utf-8");
     const arr = JSON.parse(txt);
-    // ensure id sequence and length reflect array order
     return arr.map((p, i) => ({ id: p.id ?? i+1, ...p }));
   } catch (err) {
     console.error("loadProducts error:", err);
@@ -22,24 +16,58 @@ export async function loadProducts(dataPath) {
 }
 
 /**
- * Build reply keyboard (array of rows). staticButtons remain on first row.
- * numbersCount: total products count -> create numeric buttons 1..numbersCount.
+ * buildReplyKeyboard(products, page = 1, pageSize = 10)
+ * - static row always present
+ * - numeric rows created from products of current page
+ * - last row contains Prev / Next and Deposit
  */
-export default function buildKeyboard(numbersCount = 6) {
-  const staticRow = ["🏷 List Produk", "❓ Cara Order", "⚠️ Information"];
-  // create numeric buttons as string labels
-  const nums = [];
-  for (let i = 1; i <= Math.max(0, numbersCount); i++) nums.push(String(i));
+export default function buildReplyKeyboard(products = [], page = 1, pageSize = 10) {
+  const total = products.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  page = Math.min(Math.max(1, page), totalPages);
 
-  // chunk numeric buttons into rows of up to 6
-  const chunkSize = 6;
+  const start = (page - 1) * pageSize;
+  const pageItems = products.slice(start, start + pageSize);
+
+  // static top row
+  const staticRow = ["🏷 List Produk", "❓ Cara Order", "⚠️ Information"];
+
+  // format numeric buttons chunked by 5 per row
+  const nums = pageItems.map((p, idx) => String(start + idx + 1));
+  const chunkSize = 5;
   const numRows = [];
   for (let i = 0; i < nums.length; i += chunkSize) {
     numRows.push(nums.slice(i, i + chunkSize));
   }
 
-  // last row: deposit and maybe filler
+  const navRow = [];
+  if (page > 1) navRow.push("◀️ Prev");
+  navRow.push(`📄 Halaman ${page} / ${totalPages}`);
+  if (page < totalPages) navRow.push("Next ▶️");
+
   const lastRow = ["💰 Deposit", "📄 Laporan Stok"];
 
-  return [staticRow, ...numRows, lastRow];
+  return [staticRow, ...numRows, navRow, lastRow];
+}
+
+/**
+ * helper to format a text list of products (for List Produk)
+ */
+export function buildProductsListText(products = [], page = 1, pageSize = 10) {
+  const total = products.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  page = Math.min(Math.max(1, page), totalPages);
+
+  const start = (page - 1) * pageSize;
+  const pageItems = products.slice(start, start + pageSize);
+
+  const lines = pageItems.map((p, idx) => {
+    const no = start + idx + 1;
+    const sold = p.terjual ?? 0;
+    return `[${no}]. ${p.nama} ( ${sold} )`;
+  });
+
+  const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
+  const header = `Daftar Produk\n\n${lines.join("\n")}\n\n📄 Halaman ${page} / ${totalPages}\n📆 ${now}\n`;
+  return header;
 }
