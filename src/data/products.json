@@ -13,90 +13,14 @@
   },
   {
     "id": 2,
-    "nama": "🔥 CAPCUT PRO",
+    "nama": "Genshin Impact",
     "kode": "capcut",
-    "terjual": 3505,
-    "deskripsi": "Akun Capcut Pro premium.",
-    "penjelasan_url": "https://justpaste.it/capcut",
+    "terjual": 1,
+    "deskripsi": "welkin dan primo",
+    "penjelasan_url": "https://justpaste.it",
     "variasi": [
-      { "nama": "CAPCUT PRO (HEAD)", "harga": 23000, "stok": 13, "kode": "capcuthead" },
-      { "nama": "CAPCUT PRO (RENEW)", "harga": 9000, "stok": 630, "kode": "capcutrenew" }
+      { "nama": "welkin", "harga": 90000, "stok": 13, "kode": "welkin" },
+      { "nama": "1600 primo", "harga": 3000000, "stok": 630, "kode": "primo tester" }
     ]
-  },
-  {
-    "id": 3,
-    "nama": "🔥 CAPCUT PRO (HEAD)",
-    "kode": "capcut-head",
-    "terjual": 13,
-    "deskripsi": "Varian head.",
-    "penjelasan_url": "",
-    "variasi": []
-  },
-  {
-    "id": 4,
-    "nama": "🔥 CAPCUT PRO (RENEW)",
-    "kode": "capcut-renew",
-    "terjual": 630,
-    "deskripsi": "",
-    "penjelasan_url": "",
-    "variasi": []
-  },
-  {
-    "id": 5,
-    "nama": "𝗩𝗜𝗨 𝗣𝗥𝗘𝗠𝗜𝗨𝗠",
-    "kode": "viu",
-    "terjual": 408,
-    "deskripsi": "",
-    "penjelasan_url": "",
-    "variasi": []
-  },
-  {
-    "id": 6,
-    "nama": "𝗪𝗘𝗧𝗩",
-    "kode": "wetv",
-    "terjual": 30,
-    "deskripsi": "",
-    "penjelasan_url": "",
-    "variasi": []
-  },
-  {
-    "id": 7,
-    "nama": "𝗖𝗛𝗔𝗧 𝗚𝗣𝗧",
-    "kode": "chatgpt",
-    "terjual": 74,
-    "deskripsi": "",
-    "penjelasan_url": "",
-    "variasi": []
-  },
-  {
-    "id": 8,
-    "nama": "𝗠𝗘𝗜𝗧𝗨",
-    "kode": "meitu",
-    "terjual": 15,
-    "deskripsi": "",
-    "penjelasan_url": "",
-    "variasi": []
-  },
-  {
-    "id": 9,
-    "nama": "𝗩𝗜𝗗𝗜𝗢",
-    "kode": "vidio",
-    "terjual": 884,
-    "deskripsi": "Vidio Premium",
-    "penjelasan_url": "https://justpaste.it/infovidio",
-    "variasi": [
-      { "nama": "VIDIO PLATINUM TV - 1 TAHUN - PRIVATE", "harga": 2500, "stok": 0, "kode": "vidiotv" },
-      { "nama": "VIDIO PLATINUM ALL DEVICE - 1 BULAN - PRIVATE", "harga": 30000, "stok": 1, "kode": "vidioall" },
-      { "nama": "VIDIO PLATINUM MOBILE - 1 BULAN - PRIVATE", "harga": 18000, "stok": 87, "kode": "vidiomobile" }
-    ]
-  },
-  {
-    "id": 10,
-    "nama": "𝗖𝗔𝗡𝗩𝗔 𝗣𝗥𝗢",
-    "kode": "canva",
-    "terjual": 179,
-    "deskripsi": "",
-    "penjelasan_url": "",
-    "variasi": []
   }
 ]
