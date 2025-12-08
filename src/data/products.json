@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Genshin Pack A",
+    "description": "Paket Genshin: Welkin + Primogem bundle.",
+    "price": "Rp 15.000",
+    "items": ["Welkin Blessing (7 hari)", "50 Primogem"]
+  },
+  {
+    "id": 2,
+    "name": "Top Up Pulsa 5k",
+    "description": "Pulsa reguler 5.000",
+    "price": "Rp 5.500",
+    "items": []
+  },
+  {
+    "id": 3,
+    "name": "Data 1GB",
+    "description": "Paket internet 1GB 24 jam",
+    "price": "Rp 10.000",
+    "items": []
+  }
+]
