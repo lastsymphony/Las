@@ -1,0 +1,14 @@
+{
+  "name": "bot_ppob",
+  "version": "1.0.0",
+  "main": "bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "node-telegram-bot-api": "^0.61.0",
+    "axios": "^1.6.7"
+  }
+}
