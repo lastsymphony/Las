@@ -98,15 +98,6 @@ export default async function handlerMenu(msg, bot, products = []) {
     return bot.sendMessage(chatId, lines.join("\n"), {
       reply_markup: { inline_keyboard: inline }
     });
-  }
-
-  // fallback
-  if (text.length > 0) {
-    const keyboard = buildReplyKeyboard(products, 1);
-    return bot.sendMessage(chatId, `Maaf, aku nggak paham: "${text}". Ketik /menu untuk kembali.`, {
-      reply_markup: { keyboard, resize_keyboard: true }
-    });
-  }
 }
 
 // helper: rupiah format
