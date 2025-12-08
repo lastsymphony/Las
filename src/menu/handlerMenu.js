@@ -98,6 +98,7 @@ export default async function handlerMenu(msg, bot, products = []) {
     return bot.sendMessage(chatId, lines.join("\n"), {
       reply_markup: { inline_keyboard: inline }
     });
+  }
 }
 
 // helper: rupiah format
