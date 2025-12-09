@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import buildReplyKeyboard, { loadProducts } from "./src/menu/keyboard.js";
 import handlerMenu from "./src/menu/handlerMenu.js";
 import { handleCallback } from "./src/services/orderService.js";
+import setupCekKuotaPlugin from "./src/plugins/cekKuotaPlugin.js"; // Import plugin
 
 dotenv.config();
 const TOKEN = process.env.TOKEN;
@@ -39,7 +40,7 @@ bot.onText(/\/start|\/menu/, async (msg) => {
   const chatId = msg.chat.id;
   // default page 1
   const keyboard = buildReplyKeyboard(products, 1);
-  const intro = `Halo 👋\nPilih menu atau nomor produk.\nKetik "Next ▶️" / "◀️ Prev" untuk pindah halaman.`;
+  const intro = `Halo 👋\nPilih menu atau nomor produk.\nKetik "Next ▶️" / "◀️ Prev" untuk pindah halaman.\n\nKetik /cek <nomor> untuk cek kuota.`;
   return bot.sendMessage(chatId, intro, {
     reply_markup: {
       keyboard,
@@ -61,11 +62,20 @@ bot.on("message", async (msg) => {
 // callback_query handling (inline buttons)
 bot.on("callback_query", async (callbackQuery) => {
   try {
+    // Cek jika callback dari plugin cek kuota
+    if (callbackQuery.data && callbackQuery.data.startsWith("cekkuota:")) {
+      // Callback akan ditangani oleh plugin
+      return;
+    }
+    // Handle callback lainnya
     await handleCallback(callbackQuery, bot, products);
   } catch (err) {
     console.error("handleCallback error:", err);
     try { await bot.answerCallbackQuery(callbackQuery.id, { text: "Terjadi error." }); } catch(e){}
   }
 });
+
+// Setup plugin cek kuota
+setupCekKuotaPlugin(bot);
 
 console.log("Bot berjalan. Ketik /start di Telegram.");
