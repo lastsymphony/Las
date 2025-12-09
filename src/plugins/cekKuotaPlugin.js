@@ -4,6 +4,7 @@ import path from "path";
 
 const lastUse = new Map();
 const lastQuery = new Map();
+const inProgress = new Map(); // <-- mencegah proses duplicate
 
 function rateLimit(userId, ms = 6000) {
   const now = Date.now();
@@ -59,7 +60,7 @@ function parseSize(sizeStr) {
 
 function threadOpts(msg, extra = {}) {
   const opts = { ...extra };
-  if (msg.message_thread_id) opts.message_thread_id = msg.message_thread_id;
+  if (msg && msg.message_thread_id) opts.message_thread_id = msg.message_thread_id;
   return opts;
 }
 
@@ -244,10 +245,16 @@ async function cekKuotaKMSP(msisdn) {
 export default function setupCekKuotaPlugin(bot) {
   async function handleCek(msg, msisdn) {
     const chatId = msg.chat.id;
-    const fromId = msg.from.id;
-
-    // cegah spam dobel input sama
+    const fromId = msg.from?.id || msg.chat.id;
     const key = `${chatId}:${msisdn}`;
+
+    // jika sudah ada proses berjalan untuk key ini, return (hindari spam)
+    if (inProgress.get(key)) {
+      // optional: beri tahu singkat kalau sudah dalam proses
+      return bot.sendMessage(chatId, `⏳ Permintaan untuk <code>${msisdn}</code> sedang diproses...`, threadOpts(msg, { parse_mode: "HTML", reply_to_message_id: msg.message_id }));
+    }
+
+    // cegah spam dobel input sama (toleransi waktu kecil)
     if (lastQuery.get(key) && Date.now() - lastQuery.get(key) < 5000) return;
     lastQuery.set(key, Date.now());
 
@@ -259,13 +266,16 @@ export default function setupCekKuotaPlugin(bot) {
         threadOpts(msg, { reply_to_message_id: msg.message_id })
       );
 
-    const loading = await bot.sendMessage(
-      chatId,
-      `🔍 Mengecek kuota <code>${msisdn}</code> ...`,
-      threadOpts(msg, { parse_mode: "HTML", reply_to_message_id: msg.message_id })
-    );
+    inProgress.set(key, true); // tandai in-progress
 
+    let loading;
     try {
+      loading = await bot.sendMessage(
+        chatId,
+        `🔍 Mengecek kuota <code>${msisdn}</code> ...`,
+        threadOpts(msg, { parse_mode: "HTML", reply_to_message_id: msg.message_id })
+      );
+
       /* ==============================
          try api bendith
       ===============================*/
@@ -281,7 +291,7 @@ export default function setupCekKuotaPlugin(bot) {
           return;
         }
       } catch (e) {
-        console.log("Bendith gagal → fallback KMSp:", e.message);
+        console.log("Bendith gagal → fallback KMSp:", e.message || e);
       }
 
       /* ==============================
@@ -289,11 +299,13 @@ export default function setupCekKuotaPlugin(bot) {
       ===============================*/
       const res = await cekKuotaKMSP(msisdn);
 
-      if (!res || !res.status)
-        return bot.editMessageText("❌ Gagal cek kuota atau nomor tidak ditemukan.", {
+      if (!res || !res.status) {
+        await bot.editMessageText("❌ Gagal cek kuota atau nomor tidak ditemukan.", {
           chat_id: chatId,
           message_id: loading.message_id,
         });
+        return;
+      }
 
       await bot.editMessageText(formatHTML(msisdn, res), {
         chat_id: chatId,
@@ -303,10 +315,21 @@ export default function setupCekKuotaPlugin(bot) {
       });
 
     } catch (err) {
-      await bot.editMessageText(`❌ Error: ${err.message || "Server tidak merespons"}`, {
-        chat_id: chatId,
-        message_id: loading.message_id,
-      });
+      try {
+        if (loading && loading.message_id) {
+          await bot.editMessageText(`❌ Error: ${err.message || "Server tidak merespons"}`, {
+            chat_id: chatId,
+            message_id: loading.message_id,
+          });
+        } else {
+          await bot.sendMessage(chatId, `❌ Error: ${err.message || "Server tidak merespons"}`);
+        }
+      } catch (e) {
+        console.log("Gagal mengirim pesan error:", e);
+      }
+    } finally {
+      // bersihkan flag inProgress agar request berikutnya bisa diproses
+      inProgress.delete(key);
     }
   }
 
@@ -333,8 +356,12 @@ export default function setupCekKuotaPlugin(bot) {
 
   // Auto detect nomor
   bot.on("message", async (msg) => {
+    // ignore non-text and bot messages
     if (!msg.text) return;
+    if (msg.from && msg.from.is_bot) return;
+
     const text = msg.text.trim();
+    // jangan proses jika message itu adalah command cek (handled di onText)
     if (/^\/(cek|kuota|cekkuota)/i.test(text)) return;
     const msisdn = normalizeNumber(text);
     if (!msisdn) return;
@@ -347,47 +374,63 @@ export default function setupCekKuotaPlugin(bot) {
       const [prefix, action, num] = (cq.data || "").split(":");
       if (prefix !== "cekkuota" || action !== "retry") return;
 
-      await bot.editMessageText("🔍 Mengecek kuota lagi...", {
-        chat_id: cq.message.chat.id,
-        message_id: cq.message.message_id,
-      });
+      const chatId = cq.message.chat.id;
+      const key = `${chatId}:${num}`;
+      // jika sudah ada in-progress, jawab singkat dan hentikan
+      if (inProgress.get(key)) {
+        await bot.answerCallbackQuery(cq.id, { text: "⏳ Sedang diproses..." });
+        return;
+      }
 
+      inProgress.set(key, true);
       try {
-        const bend = await cekKuotaBendith(num);
-        if (bend?.success && bend?.data?.subs_info) {
-          await bot.editMessageText(formatBendith(num, bend), {
+        await bot.editMessageText("🔍 Mengecek kuota lagi...", {
+          chat_id: cq.message.chat.id,
+          message_id: cq.message.message_id,
+        });
+
+        try {
+          const bend = await cekKuotaBendith(num);
+          if (bend?.success && bend?.data?.subs_info) {
+            await bot.editMessageText(formatBendith(num, bend), {
+              chat_id: cq.message.chat.id,
+              message_id: cq.message.message_id,
+              parse_mode: "HTML",
+              reply_markup: kb(num),
+            });
+            await bot.answerCallbackQuery(cq.id, { text: "✅ Kuota berhasil dicek ulang!" });
+            return;
+          }
+        } catch (e) {
+          console.log("Bendith retry gagal → fallback KMSp:", e.message || e);
+        }
+
+        const res = await cekKuotaKMSP(num);
+
+        if (!res || !res.status) {
+          await bot.editMessageText("❌ Gagal cek kuota atau nomor tidak ditemukan.", {
+            chat_id: cq.message.chat.id,
+            message_id: cq.message.message_id,
+          });
+        } else {
+          await bot.editMessageText(formatHTML(num, res), {
             chat_id: cq.message.chat.id,
             message_id: cq.message.message_id,
             parse_mode: "HTML",
             reply_markup: kb(num),
           });
-          await bot.answerCallbackQuery(cq.id, { text: "✅ Kuota berhasil dicek ulang!" });
-          return;
         }
-      } catch (e) {
-        console.log("Bendith retry gagal → fallback KMSp:", e.message);
+
+        await bot.answerCallbackQuery(cq.id, { text: "✅ Selesai cek ulang!" });
+      } finally {
+        inProgress.delete(key);
       }
-
-      const res = await cekKuotaKMSP(num);
-
-      if (!res || !res.status)
-        await bot.editMessageText("❌ Gagal cek kuota atau nomor tidak ditemukan.", {
-          chat_id: cq.message.chat.id,
-          message_id: cq.message.message_id,
-        });
-      else
-        await bot.editMessageText(formatHTML(num, res), {
-          chat_id: cq.message.chat.id,
-          message_id: cq.message.message_id,
-          parse_mode: "HTML",
-          reply_markup: kb(num),
-        });
-
-      await bot.answerCallbackQuery(cq.id, { text: "✅ Selesai cek ulang!" });
 
     } catch (e) {
       console.log("callback error:", e);
-      await bot.answerCallbackQuery(cq.id, { text: "❌ Terjadi kesalahan." });
+      try {
+        await bot.answerCallbackQuery(cq.id, { text: "❌ Terjadi kesalahan." });
+      } catch {}
     }
   });
 
