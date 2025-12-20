@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 import TelegramBot from "node-telegram-bot-api";
 import setupCekKuotaPlugin from "./src/plugins/cekKuotaPlugin.js"; // Import plugin
+import setupGeminiPlugin from "./src/plugins/geminiPlugin.js";
+
 
 dotenv.config();
 const TOKEN = '8481195310:AAES45ef0PPFjwhMhn7a7Im1hZXsjp-LEgM';
@@ -16,5 +18,6 @@ bot.onText(/\/start/, async (msg) => {
 
 // Setup plugin cek kuota
 setupCekKuotaPlugin(bot);
+setupGeminiPlugin(bot);
 
 console.log("Bot cek kuota berjalan. Ketik /start di Telegram.");
