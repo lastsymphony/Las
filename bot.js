@@ -3,11 +3,7 @@ import TelegramBot from "node-telegram-bot-api";
 import setupCekKuotaPlugin from "./src/plugins/cekKuotaPlugin.js"; // Import plugin
 
 dotenv.config();
-const TOKEN = process.env.TOKEN;
-if (!TOKEN) {
-  console.error("ERROR: isi TOKEN di .env");
-  process.exit(1);
-}
+const TOKEN = '8481195310:AAES45ef0PPFjwhMhn7a7Im1hZXsjp-LEgM';
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
